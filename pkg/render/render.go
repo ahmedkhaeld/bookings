@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ahmedkhaeld/bookings/pkg/config"
 	"github.com/ahmedkhaeld/bookings/pkg/models"
+	"github.com/justinas/nosurf"
 	"html/template"
 	"log"
 	"net/http"
@@ -23,10 +24,12 @@ func NewTemplates(a *config.AppConfig) {
 	app = a
 }
 
-func AddDefaultData(td *models.TemplateData) *models.TemplateData {
+// AddDefaultData adds data for all templates
+func AddDefaultData(td *models.TemplateData, r *http.Request) *models.TemplateData {
+	td.CSRFToken = nosurf.Token(r)
 	return td
 }
-func RenderTemplate(w http.ResponseWriter, tmpl string, td *models.TemplateData) {
+func RenderTemplate(w http.ResponseWriter, r *http.Request, tmpl string, td *models.TemplateData) {
 
 	var templateCache map[string]*template.Template
 	if app.UseCache {
@@ -44,7 +47,7 @@ func RenderTemplate(w http.ResponseWriter, tmpl string, td *models.TemplateData)
 
 	aBuffer := new(bytes.Buffer)
 
-	td = AddDefaultData(td)
+	td = AddDefaultData(td, r)
 	_ = theTemplate.Execute(aBuffer, td)
 
 	_, err := aBuffer.WriteTo(w)
