@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/ahmedkhaeld/bookings/pkg/config"
-	"github.com/ahmedkhaeld/bookings/pkg/models"
-	"github.com/ahmedkhaeld/bookings/pkg/render"
+	"github.com/ahmedkhaeld/bookings/internal/config"
+	"github.com/ahmedkhaeld/bookings/internal/models"
+	"github.com/ahmedkhaeld/bookings/internal/render"
+	"log"
 	"net/http"
 )
 
@@ -70,6 +72,28 @@ func (m *Repository) PostAvailability(w http.ResponseWriter, r *http.Request) {
 	end := r.Form.Get("end")
 
 	w.Write([]byte(fmt.Sprintf("start date is %s and End date is %s ", start, end)))
+}
+
+type jsonResponse struct {
+	Ok      bool   `json:"ok"`
+	Message string `json:"message"`
+}
+
+// AvailabilityJSON handles request for availability and sends back JSON response
+func (m *Repository) AvailabilityJSON(w http.ResponseWriter, r *http.Request) {
+	resp := jsonResponse{
+		Ok:      true,
+		Message: "Available",
+	}
+
+	out, err := json.MarshalIndent(resp, "", "    ")
+	if err != nil {
+		log.Println(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	w.Write(out)
 }
 
 // Contact renders the contact page
