@@ -153,15 +153,17 @@
                 confirmButtonText: confirmationButtonText
             })
         }
-
+    // when someone manually enters url that is associated to a submitted form show him error
         {{with .Error}}
             notify("{{.}}", "error");
         {{end}}
 
+		// Flash for success message
         {{with .Flash}}
         notify("{{.}}", "success");
         {{end}}
 
+		// Warning for warning message
         {{with .Warning}}
         notify("{{.}}", "warning");
         {{end}}
