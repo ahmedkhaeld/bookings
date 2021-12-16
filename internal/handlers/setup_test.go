@@ -64,7 +64,7 @@ func getRoutes() http.Handler {
 	// Gracefully absorb panics and prints the stack trace
 	mux.Use(middleware.Recoverer)
 
-	mux.Use(NoSurf)
+	//mux.Use(NoSurf)
 	mux.Use(SessionLoad)
 
 	mux.Get("/", Repo.Home)
