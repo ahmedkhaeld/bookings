@@ -13,6 +13,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 )
@@ -30,6 +31,12 @@ func getRoutes() http.Handler {
 
 	// 2. set to false
 	app.InProduction = false
+
+	infoLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime)
+	app.InfoLog = infoLog
+
+	errorLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+	app.ErrorLog = errorLog
 
 	// 3. create the session then store it in a var
 	session = scs.New()
