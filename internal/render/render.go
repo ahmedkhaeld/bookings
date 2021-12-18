@@ -20,7 +20,7 @@ var functions = template.FuncMap{}
 var app *config.AppConfig
 
 // assign template path to variable instead of hard coding
-var pathToTemplates = "../../templates"
+//var pathToTemplates = "../../templates"
 
 // NewTemplates  set app to the AppConfig when it is called to use the TemplateCache
 func NewTemplates(a *config.AppConfig) {
@@ -71,7 +71,7 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 	cache := map[string]*template.Template{}
 
 	//filepath.Glob get the location of template pages.
-	pagesPath, err := filepath.Glob(fmt.Sprintf("%s/*.page.tmpl", pathToTemplates))
+	pagesPath, err := filepath.Glob("../../templates/*.page.tmpl")
 	if err != nil {
 		return cache, err
 	}
@@ -85,13 +85,13 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 			return cache, err
 		}
 		// check template matches any layouts
-		matches, err := filepath.Glob(fmt.Sprintf("%s/*.page.tmpl", pathToTemplates))
+		matches, err := filepath.Glob("../../templates/*.layout.tmpl")
 		if err != nil {
 			return cache, err
 		}
 
 		if len(matches) > 0 {
-			templateSet, err = templateSet.ParseGlob(fmt.Sprintf("%s/*.page.tmpl", pathToTemplates))
+			templateSet, err = templateSet.ParseGlob("../../templates/*.layout.tmpl")
 			if err != nil {
 				return cache, err
 			}
