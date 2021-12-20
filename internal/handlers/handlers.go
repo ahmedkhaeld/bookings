@@ -13,6 +13,8 @@ import (
 	"github.com/ahmedkhaeld/bookings/internal/repository/dbrepo"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 // Repo the repository used by the handlers
@@ -66,12 +68,38 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	// cast StartDate, EndDate from string to time, also format the date in go format
+	sd := r.Form.Get("start_date")
+	ed := r.Form.Get("end_date")
+
+	// 2020-01-01  ---- 01/02 03:04:05PM '06 -0700
+
+	layout := "2006-01-02"
+	startDate, err := time.Parse(layout, sd)
+	if err != nil {
+		helpers.ServerError(w, err)
+	}
+	endDate, err := time.Parse(layout, ed)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	// convert RoomId from string to int
+	roomID, err := strconv.Atoi(r.Form.Get("room_id"))
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
 
 	reservation := models.Reservation{
 		FirstName: r.Form.Get("first_name"),
 		LastName:  r.Form.Get("last_name"),
 		Phone:     r.Form.Get("phone"),
 		Email:     r.Form.Get("email"),
+		StartDate: startDate,
+		EndDate:   endDate,
+		RoomID:    roomID,
 	}
 
 	form := forms.New(r.PostForm)
@@ -87,6 +115,27 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 			Form: form,
 			Data: data,
 		})
+		return
+	}
+	// write the form to the database
+	newReservationID, err := m.DB.InsertReservation(reservation)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	// build up RoomRestriction model using newReservationID
+	restriction := models.RoomRestriction{
+		StartDate:     startDate,
+		EndDate:       endDate,
+		RoomID:        roomID,
+		ReservationID: newReservationID,
+		RestrictionID: 1,
+	}
+
+	err = m.DB.InsertRoomRestriction(restriction)
+	if err != nil {
+		helpers.ServerError(w, err)
 		return
 	}
 
