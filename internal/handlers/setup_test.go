@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 )
 
@@ -23,8 +24,7 @@ var app config.AppConfig
 var session *scs.SessionManager
 var pathToTemplates = "../../templates"
 
-// getRoutes return routes http handlers
-func getRoutes() http.Handler {
+func TestMain(m *testing.M) {
 	// #copy of Run() in main
 	// 1. register the models' reservation into the sessions
 	gob.Register(models.Reservation{})
@@ -59,10 +59,16 @@ func getRoutes() http.Handler {
 	// 5. set UseCache to true to render from the cache instead render from disk
 	app.UseCache = true
 
-	repo := NewRepo(&app)
+	repo := NewTestRepo(&app)
 	NewHandlers(repo)
 
-	render.NewTemplates(&app)
+	render.NewRenderer(&app)
+
+	os.Exit(m.Run())
+}
+
+// getRoutes return routes http handlers
+func getRoutes() http.Handler {
 
 	// #copy of routes() in routes.go
 
