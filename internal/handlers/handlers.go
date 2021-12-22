@@ -63,6 +63,9 @@ func (m *Repository) Reservation(w http.ResponseWriter, r *http.Request) {
 	}
 	res.Room.RoomName = room.RoomName
 
+	// Update the session context to have the RoomName
+	m.App.Session.Put(r.Context(), "reservation", res)
+
 	// type cast back start-date & end-date from time format to string to being displayed for user Form
 	sd := res.StartDate.Format("2006-01-02")
 	ed := res.EndDate.Format("2006-01-02")
@@ -83,6 +86,10 @@ func (m *Repository) Reservation(w http.ResponseWriter, r *http.Request) {
 
 // PostReservation  resolves the submitted fields of a form (reservation)
 func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
+	reservation, ok := m.App.Session.Get(r.Context(), "reservation").(models.Reservation)
+	if !ok {
+		helpers.ServerError(w, errors.New("can not extract session data"))
+	}
 	err := r.ParseForm()
 	if err != nil {
 		// use our server error helper
@@ -90,39 +97,11 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	// cast StartDate, EndDate from string to time, also format the date in go format
-	sd := r.Form.Get("start_date")
-	ed := r.Form.Get("end_date")
 
-	// 2020-01-01  ---- 01/02 03:04:05PM '06 -0700
-
-	layout := "2006-01-02"
-	startDate, err := time.Parse(layout, sd)
-	if err != nil {
-		helpers.ServerError(w, err)
-	}
-	endDate, err := time.Parse(layout, ed)
-	if err != nil {
-		helpers.ServerError(w, err)
-		return
-	}
-
-	// convert RoomId from string to int
-	roomID, err := strconv.Atoi(r.Form.Get("room_id"))
-	if err != nil {
-		helpers.ServerError(w, err)
-		return
-	}
-
-	reservation := models.Reservation{
-		FirstName: r.Form.Get("first_name"),
-		LastName:  r.Form.Get("last_name"),
-		Phone:     r.Form.Get("phone"),
-		Email:     r.Form.Get("email"),
-		StartDate: startDate,
-		EndDate:   endDate,
-		RoomID:    roomID,
-	}
+	reservation.FirstName = r.Form.Get("first_name")
+	reservation.LastName = r.Form.Get("last_name")
+	reservation.Phone = r.Form.Get("phone")
+	reservation.Email = r.Form.Get("email")
 
 	form := forms.New(r.PostForm)
 
@@ -148,9 +127,9 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 
 	// build up RoomRestriction model using newReservationID
 	restriction := models.RoomRestriction{
-		StartDate:     startDate,
-		EndDate:       endDate,
-		RoomID:        roomID,
+		StartDate:     reservation.StartDate,
+		EndDate:       reservation.EndDate,
+		RoomID:        reservation.RoomID,
 		ReservationID: newReservationID,
 		RestrictionID: 1,
 	}
@@ -163,6 +142,7 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 
 	// go to the reservation-summary page
 	m.App.Session.Put(r.Context(), "reservation", reservation)
+
 	http.Redirect(w, r, "/reservation-summary", http.StatusSeeOther)
 }
 
@@ -178,8 +158,14 @@ func (m *Repository) ReservationSummary(w http.ResponseWriter, r *http.Request) 
 
 	data := make(map[string]interface{})
 	data["reservation"] = reservation
+	sd := reservation.StartDate.Format("2006-01-02")
+	ed := reservation.EndDate.Format("2006-01-02")
+	stringMap := make(map[string]string)
+	stringMap["start_date"] = sd
+	stringMap["end_date"] = ed
 	render.Template(w, r, "reservation-summary.page.tmpl", &models.TemplateData{
-		Data: data,
+		Data:      data,
+		StringMap: stringMap,
 	})
 }
 
@@ -238,15 +224,30 @@ func (m *Repository) PostAvailability(w http.ResponseWriter, r *http.Request) {
 }
 
 type jsonResponse struct {
-	Ok      bool   `json:"ok"`
-	Message string `json:"message"`
+	Ok        bool   `json:"ok"`
+	Message   string `json:"message"`
+	RoomID    string `json:"room_id"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
 }
 
 // AvailabilityJSON handles request for availability and sends back JSON response
 func (m *Repository) AvailabilityJSON(w http.ResponseWriter, r *http.Request) {
+	sd := r.Form.Get("start")
+	ed := r.Form.Get("end")
+	layout := "2006-01-02"
+	startDate, _ := time.Parse(layout, sd)
+	endDate, _ := time.Parse(layout, ed)
+
+	roomID, _ := strconv.Atoi(r.Form.Get("room_id"))
+
+	available, _ := m.DB.SearchAvailabilityByDatesByRoomID(startDate, endDate, roomID)
 	resp := jsonResponse{
-		Ok:      true,
-		Message: "Available",
+		Ok:        available,
+		Message:   "",
+		StartDate: sd,
+		EndDate:   ed,
+		RoomID:    strconv.Itoa(roomID),
 	}
 
 	out, err := json.MarshalIndent(resp, "", "    ")
@@ -283,6 +284,36 @@ func (m *Repository) ChooseRoom(w http.ResponseWriter, r *http.Request) {
 	m.App.Session.Put(r.Context(), "reservation", res)
 
 	http.Redirect(w, r, "/make-reservation", http.StatusSeeOther)
+}
+
+// BookRoom takes URL parameters, builds a session variables, and direct user to make-reservation page
+func (m *Repository) BookRoom(w http.ResponseWriter, r *http.Request) {
+	// get from session id (s)start (e)end
+	roomID, _ := strconv.Atoi(r.URL.Query().Get("id"))
+	sd := r.URL.Query().Get("s")
+	ed := r.URL.Query().Get("d")
+
+	layout := "2006-01-02"
+	startDate, _ := time.Parse(layout, sd)
+	endDate, _ := time.Parse(layout, ed)
+
+	var res models.Reservation
+
+	room, err := m.DB.GetRoomByID(roomID)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	res.Room.RoomName = room.RoomName
+	res.RoomID = roomID
+	res.StartDate = startDate
+	res.EndDate = endDate
+
+	m.App.Session.Put(r.Context(), "reservation", res)
+
+	http.Redirect(w, r, "/make-reservation", http.StatusSeeOther)
+
 }
 
 // Contact renders the contact page
