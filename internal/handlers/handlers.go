@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/ahmedkhaeld/bookings/internal/config"
 	"github.com/ahmedkhaeld/bookings/internal/driver"
 	"github.com/ahmedkhaeld/bookings/internal/forms"
@@ -178,6 +179,37 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
+	// send notification - first to the guest
+	htmlMessage := fmt.Sprintf(`
+		<strong>Reservation Confirmation </strong><br>
+		Dear %s: <br>
+		This is confirm your resrvation from %s to %s.`,
+		reservation.FirstName, reservation.StartDate.Format("2006-01-02"),
+		reservation.EndDate.Format("2006-01-02"))
+	msg := models.MailData{
+		To:       reservation.Email,
+		From:     "me@her.com",
+		Subject:  "Reservation Confirmation",
+		Content:  htmlMessage,
+		Template: "basic.html",
+	}
+
+	// send notification to property owner
+	htmlMessage = fmt.Sprintf(`
+		<strong>Reservation Confirmation </strong><br>
+		Dear %s: <br>
+		This is confirm your resrvation from %s to %s.`,
+		reservation.FirstName, reservation.StartDate.Format("2006-01-02"),
+		reservation.EndDate.Format("2006-01-02"))
+	msg = models.MailData{
+		To:       "me@here.com",
+		From:     "me@her.com",
+		Subject:  "Reservation Notification",
+		Content:  htmlMessage,
+		Template: "basic.html",
+	}
+
+	m.App.MailChan <- msg
 
 	m.App.Session.Put(r.Context(), "reservation", reservation)
 
