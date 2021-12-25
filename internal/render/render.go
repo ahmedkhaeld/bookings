@@ -10,11 +10,19 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 //var functions a map of functions that can be used in templates e.g. format a date
 // some time we will create our own functions and pass them to the template
-var functions = template.FuncMap{}
+var functions = template.FuncMap{
+	"humanDate": HumanDate,
+}
+
+// HumanDate returns time in YYYY-MM-DD format
+func HumanDate(t time.Time) string {
+	return t.Format("2006-01-02")
+}
 
 // app pointer will have access to the configuration to access TemplateCache or other AppConfig fields
 var app *config.AppConfig
